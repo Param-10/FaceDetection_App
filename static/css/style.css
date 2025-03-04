@@ -62,6 +62,16 @@ header h1 {
     color: var(--warning-color);
 }
 
+.disclaimer-banner a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.disclaimer-banner a:hover {
+    text-decoration: underline;
+}
+
 .detection-panel {
     background-color: var(--white);
     border-radius: 8px;
