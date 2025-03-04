@@ -3,12 +3,12 @@ services:
     name: face-detection-app
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn -w 1 app:app
     plan: free
     healthCheckPath: /
     healthCheckTimeout: 300
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10.9
+        value: 3.11.0
       - key: PORT
         value: 10000

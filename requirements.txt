@@ -2,9 +2,12 @@ flask==2.3.3
 Werkzeug==2.3.7
 opencv-python-headless==4.8.0.74
 numpy==1.24.3
-torch==2.2.0
-torchvision==0.17.0
-deepface==0.0.79
-tensorflow==2.13.0
-keras==2.13.1
+torch==1.13.1
+torchvision==0.14.1
 gunicorn==21.2.0
+
+# Optional dependencies - commented out to avoid conflicts
+# Install with: pip install -r requirements.txt[analysis]
+# deepface==0.0.79
+# tensorflow==2.13.0
+# keras==2.13.1

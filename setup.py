@@ -6,11 +6,20 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "flask",
-        "numpy",
-        "opencv-python-headless",
-        "torch",
-        "torchvision",
-        "deepface",
+        "flask==2.3.3",
+        "Werkzeug==2.3.7",
+        "opencv-python-headless==4.8.0.74",
+        "numpy==1.24.3",
+        "torch==1.13.1",
+        "torchvision==0.14.1",
+        "gunicorn==21.2.0",
     ],
+    # Optional dependencies
+    extras_require={
+        "analysis": [
+            "deepface==0.0.79",
+            "tensorflow==2.13.0",
+            "keras==2.13.1",
+        ]
+    }
 )

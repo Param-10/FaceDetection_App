@@ -14,20 +14,23 @@ except ImportError:
 
 class FaceDetectionModel:
     def __init__(self):
+        # Initialize the face cascade for OpenCV fallback
         try:
-            # Try the newer API first (PyTorch 2.0+)
-            self.model = fasterrcnn_resnet50_fpn(weights='DEFAULT')
-        except (TypeError, ValueError):
-            try:
-                # Fallback to older API
-                self.model = fasterrcnn_resnet50_fpn(pretrained=True)
-            except Exception as e:
-                print(f"Error loading model: {e}")
-                # Last resort - load with no pretrained weights
-                self.model = fasterrcnn_resnet50_fpn()
-                
-        self.model.eval()
+            self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        except Exception as e:
+            print(f"Error loading face cascade: {e}")
+            self.face_cascade = None
         
+        # Initialize PyTorch model
+        try:
+            # For PyTorch 1.13, use the pretrained parameter
+            self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+            self.model.eval()
+            self.torch_available = True
+        except Exception as e:
+            print(f"Error loading PyTorch model: {e}. Will use OpenCV for face detection.")
+            self.torch_available = False
+                
         # Initialize DeepFace models
         self.emotion_model_loaded = False
         self.age_gender_model_loaded = False
@@ -60,6 +63,20 @@ class FaceDetectionModel:
             except Exception as e:
                 print(f"Error loading DeepFace models: {e}")
     
+    def _detect_faces_opencv(self, image):
+        """Fallback method using OpenCV's built-in face detector"""
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, 1.1, 4)
+        
+        boxes = []
+        scores = []
+        
+        for (x, y, w, h) in faces:
+            boxes.append([x, y, x+w, y+h])
+            scores.append(1.0)  # OpenCV doesn't provide confidence scores
+            
+        return boxes, scores
+    
     def detect_faces(self, image):
         """
         Detect faces in an image using the Faster R-CNN model.
@@ -71,26 +88,37 @@ class FaceDetectionModel:
             result_img: Image with bounding boxes drawn around detected faces
             face_data: List of dictionaries containing face information
         """
-        # Convert image to tensor
-        img_tensor = torchvision.transforms.functional.to_tensor(image)
-        
-        # Perform inference
-        with torch.no_grad():
-            prediction = self.model([img_tensor])
-        
-        # Extract boxes with high confidence (> 0.7) and class 1 (person)
-        boxes = prediction[0]['boxes'][prediction[0]['scores'] > 0.7]
-        scores = prediction[0]['scores'][prediction[0]['scores'] > 0.7]
-        
         # Draw bounding boxes and analyze faces
         result_img = image.copy()
         face_data = []
+        
+        # Detect faces using PyTorch if available, otherwise use OpenCV
+        if self.torch_available:
+            # Convert image to tensor
+            img_tensor = torchvision.transforms.functional.to_tensor(image)
+            
+            # Perform inference
+            with torch.no_grad():
+                prediction = self.model([img_tensor])
+            
+            # Extract boxes with high confidence (> 0.7) and class 1 (person)
+            boxes = prediction[0]['boxes'][prediction[0]['scores'] > 0.7]
+            scores = prediction[0]['scores'][prediction[0]['scores'] > 0.7]
+        elif self.face_cascade is not None:
+            # Fallback to OpenCV
+            boxes, scores = self._detect_faces_opencv(image)
+        else:
+            # No detection method available
+            return result_img, []
         
         # Only attempt to load DeepFace models if the package is available
         if DEEPFACE_AVAILABLE:
             self._ensure_models_loaded()
         
         for i, box in enumerate(boxes):
+            if isinstance(box, torch.Tensor):
+                box = box.detach().cpu().numpy()
+                
             x1, y1, x2, y2 = map(int, box)
             
             # Extract face region
@@ -102,7 +130,7 @@ class FaceDetectionModel:
                 
             face_info = {
                 'box': (x1, y1, x2, y2),
-                'confidence': float(scores[i]),
+                'confidence': float(scores[i]) if isinstance(scores[i], (float, int, torch.Tensor)) else 1.0,
                 'emotion': None,
                 'age': None,
                 'gender': None
