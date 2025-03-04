@@ -23,8 +23,14 @@ class FaceDetectionModel:
         
         # Initialize PyTorch model
         try:
-            # For PyTorch 1.13, use the pretrained parameter
-            self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+            # For PyTorch 2.0+, try both APIs
+            try:
+                # First try with weights parameter (newer API)
+                self.model = fasterrcnn_resnet50_fpn(weights='DEFAULT')
+            except (TypeError, ValueError, AttributeError):
+                # Fallback to pretrained parameter (older API)
+                self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+            
             self.model.eval()
             self.torch_available = True
         except Exception as e:

@@ -10,8 +10,8 @@ setup(
         "Werkzeug==2.3.7",
         "opencv-python-headless==4.8.0.74",
         "numpy==1.24.3",
-        "torch==1.13.1",
-        "torchvision==0.14.1",
+        "torch==2.0.1",
+        "torchvision==0.15.2",
         "gunicorn==21.2.0",
     ],
     # Optional dependencies
