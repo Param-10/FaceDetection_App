@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="FaceDetection_WebApp",
+    name="face_detection_webapp",
     version="0.1",
     packages=find_packages(),
     include_package_data=True,

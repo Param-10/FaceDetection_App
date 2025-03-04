@@ -6,4 +6,4 @@ if [ -d "venv" ]; then
 fi
 
 # Run the application
-python run.py
+python app.py

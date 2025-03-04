@@ -1,6 +1,9 @@
-flask==2.0.1
-werkzeug==2.0.1
-opencv-python-headless==4.11.0.86
+flask==2.3.3
+Werkzeug==2.3.7
+opencv-python-headless==4.8.0.74
 numpy==1.24.3
 torch==2.2.0
 torchvision==0.17.0
+deepface==0.0.79
+gunicorn==21.2.0
+tf-keras==2.15.0
