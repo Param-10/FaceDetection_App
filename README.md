@@ -1,6 +1,6 @@
-# Face Detection Web App
+# Face Detection App
 
-A simple web application for face detection using Flask and OpenCV.
+A simple python application for face detection using Flask and OpenCV. An online version is available for the project demo.
 
 🌐 **Live Demo**: [https://facedetection-webapp-go5s.onrender.com](https://facedetection-webapp-go5s.onrender.com)
 
