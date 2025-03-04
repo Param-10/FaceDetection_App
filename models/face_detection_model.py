@@ -3,7 +3,14 @@ import torch
 import torchvision
 import numpy as np
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
-from deepface import DeepFace
+
+# Wrap the DeepFace import in a try-except to make it optional
+try:
+    from deepface import DeepFace
+    DEEPFACE_AVAILABLE = True
+except ImportError:
+    print("DeepFace is not available or has compatibility issues. Face analysis features will be disabled.")
+    DEEPFACE_AVAILABLE = False
 
 class FaceDetectionModel:
     def __init__(self):
@@ -25,10 +32,15 @@ class FaceDetectionModel:
         self.emotion_model_loaded = False
         self.age_gender_model_loaded = False
         
-        # Load models on first use to improve startup time
-    
+        # Don't try to load DeepFace models if the package is not available
+        if not DEEPFACE_AVAILABLE:
+            print("DeepFace is not available. Face analysis will be limited to detection only.")
+        
     def _ensure_models_loaded(self):
         """Ensure DeepFace models are loaded when needed"""
+        if not DEEPFACE_AVAILABLE:
+            return
+            
         if not self.emotion_model_loaded or not self.age_gender_model_loaded:
             # This will trigger model downloads if needed
             try:
@@ -74,8 +86,9 @@ class FaceDetectionModel:
         result_img = image.copy()
         face_data = []
         
-        # Ensure models are loaded
-        self._ensure_models_loaded()
+        # Only attempt to load DeepFace models if the package is available
+        if DEEPFACE_AVAILABLE:
+            self._ensure_models_loaded()
         
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = map(int, box)
@@ -95,20 +108,22 @@ class FaceDetectionModel:
                 'gender': None
             }
             
-            # Analyze face for emotion, age, and gender
-            try:
-                if self.emotion_model_loaded:
-                    emotion_analysis = DeepFace.analyze(face_img, actions=['emotion'], enforce_detection=False, silent=True)
-                    if emotion_analysis and len(emotion_analysis) > 0:
-                        face_info['emotion'] = emotion_analysis[0]['dominant_emotion']
-                
-                if self.age_gender_model_loaded:
-                    age_gender_analysis = DeepFace.analyze(face_img, actions=['age', 'gender'], enforce_detection=False, silent=True)
-                    if age_gender_analysis and len(age_gender_analysis) > 0:
-                        face_info['age'] = age_gender_analysis[0]['age']
-                        face_info['gender'] = age_gender_analysis[0]['dominant_gender']
-            except Exception as e:
-                print(f"Error analyzing face: {e}")
+            # Only attempt DeepFace analysis if available
+            if DEEPFACE_AVAILABLE:
+                # Analyze face for emotion, age, and gender
+                try:
+                    if self.emotion_model_loaded:
+                        emotion_analysis = DeepFace.analyze(face_img, actions=['emotion'], enforce_detection=False, silent=True)
+                        if emotion_analysis and len(emotion_analysis) > 0:
+                            face_info['emotion'] = emotion_analysis[0]['dominant_emotion']
+                    
+                    if self.age_gender_model_loaded:
+                        age_gender_analysis = DeepFace.analyze(face_img, actions=['age', 'gender'], enforce_detection=False, silent=True)
+                        if age_gender_analysis and len(age_gender_analysis) > 0:
+                            face_info['age'] = age_gender_analysis[0]['age']
+                            face_info['gender'] = age_gender_analysis[0]['dominant_gender']
+                except Exception as e:
+                    print(f"Error analyzing face: {e}")
             
             face_data.append(face_info)
             
