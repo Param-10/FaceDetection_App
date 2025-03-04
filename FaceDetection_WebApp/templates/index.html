@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Detection App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Face Detection</h1>
+            <p>Upload an image or use your webcam to detect faces with emotion, age, and gender analysis</p>
+        </header>
+        
+        <div class="disclaimer-banner">
+            <p><strong>Disclaimer:</strong> The emotion, age, and gender predictions are not entirely accurate and are provided for testing purposes only. 
+            Results may vary in accuracy depending on image quality and lighting conditions.</p>
+            <p><strong>For best results:</strong> Use high-quality portrait images with good lighting and clear facial features.</p>
+        </div>
+        
+        <div class="detection-panel">
+            <div class="input-section">
+                <div class="upload-area">
+                    <input type="file" id="imageUpload" accept="image/*">
+                    <label for="imageUpload">Choose Image</label>
+                </div>
+                <div class="webcam-area">
+                    <button id="startWebcam">Use Webcam</button>
+                    <button id="captureImage" disabled>Capture</button>
+                    <button id="stopWebcam" disabled>Stop Webcam</button>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <div class="image-preview">
+                    <h3>Original Image</h3>
+                    <div id="originalImageContainer">
+                        <img id="originalImage" src="" alt="Preview will appear here">
+                    </div>
+                </div>
+                <div class="result-preview">
+                    <h3>Detected Faces</h3>
+                    <div id="resultImageContainer">
+                        <img id="resultImage" src="" alt="Result will appear here">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="face-info-container">
+            <div id="faceInfo">
+                <p>Face information will appear here after processing</p>
+            </div>
+        </div>
+        
+        <div class="webcam-container">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+        </div>
+        
+        <footer>
+            <p>Created with PyTorch, OpenCV & DeepFace</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
