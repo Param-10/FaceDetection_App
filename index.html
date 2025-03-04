@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Detection App</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Face Detection</h1>
+            <p>Upload an image or use your webcam to detect faces</p>
+        </header>
+        
+        <div class="detection-panel">
+            <div class="input-section">
+                <div class="upload-area">
+                    <input type="file" id="imageUpload" accept="image/*">
+                    <label for="imageUpload">Choose Image</label>
+                </div>
+                <div class="webcam-area">
+                    <button id="startWebcam">Use Webcam</button>
+                    <button id="captureImage" disabled>Capture</button>
+                    <button id="stopWebcam" disabled>Stop Webcam</button>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <div class="image-preview">
+                    <h3>Original Image</h3>
+                    <div id="originalImageContainer">
+                        <img id="originalImage" src="" alt="Preview will appear here">
+                    </div>
+                </div>
+                <div class="result-preview">
+                    <h3>Detected Faces</h3>
+                    <div id="resultImageContainer">
+                        <img id="resultImage" src="" alt="Result will appear here">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="webcam-container">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+        </div>
+        
+        <footer>
+            <p>Created with PyTorch & OpenCV | <a href="https://github.com/yourusername/face-detection-app">GitHub Repository</a></p>
+        </footer>
+    </div>
+    
+    <script src="static/js/main.js"></script>
+</body>
+</html>

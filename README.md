@@ -12,18 +12,19 @@ A simple web application for face detection using Flask, OpenCV, and PyTorch.
 ## Requirements
 
 - Python 3.7+
-- Flask 2.0.1
-- Werkzeug 2.0.1
+- Flask 2.3.3
+- Werkzeug 2.3.7
 - OpenCV (opencv-python-headless)
 - PyTorch 2.2.0
 - TorchVision 0.17.0
 - NumPy 1.24.3
+- DeepFace 0.0.79
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/FaceDetection_WebApp.git
+git clone https://github.com/Param-10/FaceDetection_WebApp.git
 cd FaceDetection_WebApp
 ```
 
@@ -45,7 +46,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-2. Open your browser and go to `http://127.0.0.1:5000`
+2. Open your browser and go to `http://127.0.0.1:5050`
 
 3. Upload an image or use your webcam to detect faces
 
@@ -64,23 +65,20 @@ This application uses a pre-trained Faster R-CNN model from PyTorch's torchvisio
 
 ```
 FaceDetection_WebApp/
-├── FaceDetection_WebApp/       # Main package
-│   ├── __init__.py             # Package initialization
-│   ├── app.py                  # Flask application
-│   ├── models/                 # Model directory
-│   │   ├── __init__.py
-│   │   └── face_detection_model.py  # Face detection model
-│   ├── static/                 # Static files
-│   │   ├── css/
-│   │   │   └── style.css       # CSS styles
-│   │   └── js/
-│   │       └── main.js         # JavaScript for frontend
-│   └── templates/              # HTML templates
-│       └── index.html          # Main page
-├── app.py                      # Entry point script
-├── requirements.txt            # Dependencies
-├── run.py                      # Alternative entry point
-└── README.md                   # This file
+├── models/                    # Model directory
+│   ├── __init__.py
+│   └── face_detection_model.py  # Face detection model
+├── static/                    # Static files
+│   ├── css/
+│   │   └── style.css          # CSS styles
+│   └── js/
+│       └── main.js            # JavaScript for frontend
+├── templates/                 # HTML templates
+│   └── index.html             # Main page
+├── app.py                     # Flask application and entry point
+├── requirements.txt           # Dependencies
+├── Procfile                   # For deployment to Render
+└── README.md                  # This file
 ```
 
 ## Troubleshooting
