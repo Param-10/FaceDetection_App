@@ -8,11 +8,7 @@ export default defineConfig({
     port: 3000,
     host: true,
     proxy: {
-      '/detect': {
-        target: 'http://localhost:5050',
-        changeOrigin: true,
-        secure: false
-      }
+      '/detect': 'http://localhost:5050'
     }
   }
 })

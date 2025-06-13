@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ImageUpload from './components/ImageUpload'
 import ResultDisplay from './components/ResultDisplay'
-import './App.css'
+import './index.css'
 
 function App() {
   const [results, setResults] = useState(null)
