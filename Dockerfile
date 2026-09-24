@@ -17,7 +17,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     TF_CPP_MIN_LOG_LEVEL=2 \
-    PORT=10000
+    PORT=10000 \
+    HOME=/home/app \
+    MODEL_DATA_DIR=/app/model_data \
+    XDG_CACHE_HOME=/home/app/.cache
 
 # OpenCV and TensorFlow need these runtime libraries on Debian slim.
 RUN apt-get update \
@@ -30,6 +33,9 @@ RUN apt-get update \
         libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid app --create-home --shell /usr/sbin/nologin app
+
 WORKDIR /app
 COPY requirements-deploy.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
@@ -38,5 +44,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY app.py face_detection_model.py ./
 COPY --from=frontend-build /build/dist ./dist
 
+RUN mkdir -p /app/model_data /home/app/.cache \
+    && chown -R app:app /app /home/app
+
+USER app
 EXPOSE 10000
 CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 1 --timeout 600 app:app"]
