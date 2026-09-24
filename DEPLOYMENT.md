@@ -20,6 +20,18 @@ Render builds `Dockerfile`, starts Gunicorn on Render's `$PORT`, and checks `/he
 
 The first startup may take several minutes while DeepFace downloads model weights. The public feedback database is created inside the container and is ephemeral unless a persistent disk is configured.
 
+## If the Render service already exists
+
+Do not create a second service. In the Render Dashboard, open the existing service and verify:
+
+- Repository: `Param-10/FaceDetection_App`
+- Branch: `main`
+- Runtime: Docker
+- Plan: Free
+- Health check path: `/health`
+
+After the deployment PR is merged, use **Manual Deploy → Deploy latest commit**. The service should use the repository `Dockerfile` and `render.yaml` settings.
+
 ## Optional persistent feedback storage
 
 For a paid service, attach a disk mounted at `/var/data` and add:
