@@ -26,11 +26,15 @@ Do not create a second service. In the Render Dashboard, open the existing servi
 
 - Repository: `Param-10/FaceDetection_App`
 - Branch: `main`
-- Runtime: Docker
 - Plan: Free
 - Health check path: `/health`
 
-After the deployment PR is merged, use **Manual Deploy → Deploy latest commit**. The service should use the repository `Dockerfile` and `render.yaml` settings.
+For the existing native Python/free service, use:
+
+- Build command: `pip install -r requirements.txt && npm ci && npm run build`
+- Start command: `gunicorn app:app`
+
+That lightweight mode runs OpenCV detection only. To enable DeepFace emotion, age, and gender analysis, use the Docker configuration and `requirements-deploy.txt` instead. After saving the settings, use **Manual Deploy → Deploy latest commit**.
 
 ## Optional persistent feedback storage
 

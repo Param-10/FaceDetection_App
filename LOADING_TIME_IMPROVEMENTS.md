@@ -29,67 +29,37 @@ def __init__(self):
 - ✅ No more 500 errors from lazy loading
 - ✅ Clear progress indicators during loading
 
-### 2. **Graceful Error Handling**
+### 2. **Graceful Analysis Fallback**
 
-```python
-# Missing dependencies, preload failures, and genuine loading are distinct.
-if not face_detector.deepface_available:
-    return jsonify({
-        'error': 'DeepFace is not installed',
-        'loading': False,
-        'message': 'Install deepface and tensorflow, then restart the backend.'
-    }), 503
-
-if face_detector.model_preload_failed:
-    return jsonify({
-        'error': 'DeepFace models failed to load',
-        'loading': False,
-        'message': 'Check the backend logs, then restart the backend.'
-    }), 503
-```
-
-**Benefits**:
-- ✅ Returns HTTP 503 with an actionable reason
-- ✅ Distinguishes missing dependencies, load failures, and temporary loading
-- ✅ Sets `loading: false` when retrying without a fix will not help
+The lightweight/native deployment does not require DeepFace. If DeepFace is missing or fails to preload, the API continues with OpenCV detection and omits emotion, age, and gender attributes. `/ready` reports `degraded` rather than failing the service.
 
 ### 3. **Model Readiness API Endpoint**
 
 ```bash
 GET /ready
 
-# DeepFace is not installed:
+# OpenCV-only mode:
 {
-    "ready": false,
-    "status": "unavailable",
+    "ready": true,
+    "status": "degraded",
     "models": {
         "face_detector": "ready",
-        "emotion_model": "unavailable",
-        "age_gender_model": "unavailable"
+        "emotion_model": "degraded",
+        "age_gender_model": "degraded",
+        "analysis_available": false
     },
-    "message": "DeepFace is not installed; install deepface and tensorflow, then restart the backend"
+    "message": "OpenCV detection is ready; DeepFace analysis is unavailable"
 }
 
-# Model preload failed:
-{
-    "ready": false,
-    "status": "error",
-    "models": {
-        "face_detector": "ready",
-        "emotion_model": "error",
-        "age_gender_model": "error"
-    },
-    "message": "DeepFace models failed to load; check backend logs and restart the backend"
-}
-
-# Models are ready:
+# Full analysis mode:
 {
     "ready": true,
     "status": "ready",
     "models": {
         "face_detector": "ready",
         "emotion_model": "ready",
-        "age_gender_model": "ready"
+        "age_gender_model": "ready",
+        "analysis_available": true
     },
     "message": "All models ready for processing"
 }
@@ -137,7 +107,7 @@ GET /ready
 1. ✅ The backend process starts and preloads DeepFace during initialization
 2. ✅ Startup and preload messages are written to the backend log
 3. ✅ The API begins listening after initialization completes
-4. ✅ `/ready` distinguishes ready, loading, unavailable, and error states
+4. ✅ `/ready` distinguishes ready, degraded, loading, and error states
 5. ✅ Detection requests are accepted only after both model groups are ready
 
 ---
@@ -189,7 +159,7 @@ GET /ready
    }
    ```
 
-   Do not retry `unavailable` or `error` states until the operator installs the dependency or fixes the model-loading failure.
+   Do not retry `error` states until the operator fixes the model-loading failure. `degraded` means detection is available without attribute analysis.
 
 ---
 
@@ -212,10 +182,10 @@ GET /ready
 
 ## 🔧 Readiness States
 
-- `ready`: both DeepFace model groups loaded; requests can be processed.
+- `ready`: both DeepFace model groups loaded; requests can be processed with attributes.
+- `degraded`: OpenCV detection is ready, but DeepFace attributes are unavailable.
 - `loading`: a load is genuinely still in progress.
-- `unavailable`: DeepFace is not installed in the backend environment.
-- `error`: DeepFace is installed, but model loading failed.
+- `error`: model initialization failed.
 
 Do not disable preloading without also updating the request gate; the current Flask API intentionally rejects detection requests until both model groups are ready.
 
@@ -260,7 +230,7 @@ detector.emotion_model_loaded and detector.age_gender_model_loaded
 ### **Common HTTP Status Codes**:
 - `200`: Models ready, processing successful
 - `400`: Bad request (invalid image, etc.)
-- `503`: Models are loading, unavailable, or failed to load; inspect `status` and `message`
+- `503`: Models are loading or failed to initialize; inspect `status` and `message`
 - `500`: Unexpected error (check logs)
 
 ### **Expected Startup Sequence**:

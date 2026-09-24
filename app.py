@@ -46,36 +46,38 @@ def ready_check():
         else:
             status_details['face_detector'] = 'ready'
         
-        # Check DeepFace models and distinguish missing/failed dependencies
-        # from a genuinely in-progress load.
+        # Report whether analysis is ready while allowing the lightweight
+        # OpenCV-only mode to serve detection requests.
+        model_status = 'error'
         if hasattr(face_detector, 'emotion_model_loaded') and hasattr(face_detector, 'age_gender_model_loaded'):
             if face_detector.emotion_model_loaded and face_detector.age_gender_model_loaded:
                 model_status = 'ready'
             elif not getattr(face_detector, 'deepface_available', False):
-                model_status = 'unavailable'
+                model_status = 'degraded'
             elif getattr(face_detector, 'model_preload_failed', False):
-                model_status = 'error'
+                model_status = 'degraded'
             else:
                 model_status = 'loading'
 
             status_details['emotion_model'] = model_status
             status_details['age_gender_model'] = model_status
+            status_details['analysis_available'] = model_status == 'ready'
 
-            if model_status != 'ready':
+            if model_status == 'loading':
                 models_ready = False
-        
-        if models_ready:
+
+        if models_ready and model_status == 'degraded':
+            readiness_message = 'OpenCV detection is ready; DeepFace analysis is unavailable'
+        elif models_ready:
             readiness_message = 'All models ready for processing'
-        elif status_details.get('emotion_model') == 'unavailable':
-            readiness_message = 'DeepFace is not installed; install deepface and tensorflow, then restart the backend'
-        elif status_details.get('emotion_model') == 'error':
-            readiness_message = 'DeepFace models failed to load; check backend logs and restart the backend'
-        else:
+        elif model_status == 'loading':
             readiness_message = 'Models are still loading, please wait...'
+        else:
+            readiness_message = 'Model initialization failed; check backend logs'
 
         return jsonify({
             'ready': models_ready,
-            'status': 'ready' if models_ready else status_details.get('emotion_model', 'loading'),
+            'status': model_status,
             'models': status_details,
             'message': readiness_message
         })
@@ -126,31 +128,22 @@ def process_image():
             
         print(f"🔍 Processing image of size: {img.shape}")
         
-        # The current API requires both DeepFace models before processing.
+        # OpenCV-only mode is supported when DeepFace is unavailable or its
+        # preload failed. A genuine in-progress load still returns 503.
         if hasattr(face_detector, 'emotion_model_loaded') and hasattr(face_detector, 'age_gender_model_loaded'):
-            if not getattr(face_detector, 'deepface_available', False):
-                return jsonify({
-                    'error': 'DeepFace is not installed',
-                    'loading': False,
-                    'message': 'Install deepface and tensorflow, then restart the backend.'
-                }), 503
+            deepface_ready = face_detector.emotion_model_loaded and face_detector.age_gender_model_loaded
+            deepface_unavailable = not getattr(face_detector, 'deepface_available', False)
+            preload_failed = getattr(face_detector, 'model_preload_failed', False)
 
-            if getattr(face_detector, 'model_preload_failed', False):
-                return jsonify({
-                    'error': 'DeepFace models failed to load',
-                    'loading': False,
-                    'message': 'Check the backend logs, then restart the backend.'
-                }), 503
-
-            if not face_detector.emotion_model_loaded or not face_detector.age_gender_model_loaded:
+            if not deepface_ready and not deepface_unavailable and not preload_failed:
                 print("⏳ Models still loading - this may take a moment...")
                 return jsonify({
                     'error': 'Models are still loading. Please wait a moment and try again.',
                     'loading': True,
                     'message': 'AI models are initializing. Check /ready for current status.'
                 }), 503  # Service Temporarily Unavailable
-            
-        # Detect faces with DeepFace analysis and heuristic validation
+
+        # Detect faces with optional DeepFace analysis and heuristic validation
         result_img, face_data, metadata = face_detector.detect_faces(img)
         
         # Convert to base64 for sending to frontend
