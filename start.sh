@@ -25,9 +25,15 @@ if ! command_exists python3; then
     exit 1
 fi
 
-# Check if Node.js is installed
-if ! command_exists npm; then
+# Check if a Vite-compatible Node.js/npm installation is available
+if ! command_exists node || ! command_exists npm; then
     echo "❌ Error: Node.js/npm is not installed. Please install Node.js first."
+    exit 1
+fi
+
+if ! node -e "const [major, minor] = process.versions.node.split('.').map(Number); const supported = (major === 20 && minor >= 19) || (major === 22 && minor >= 12) || major > 22; process.exit(supported ? 0 : 1);"; then
+    echo "❌ Error: Node.js $(node --version) is unsupported."
+    echo "   Vite 8 requires Node.js ^20.19.0 or >=22.12.0."
     exit 1
 fi
 
@@ -134,7 +140,7 @@ echo "   ✅ Face Detection"
 echo "   ✅ Emotion Analysis" 
 echo "   ✅ Age Estimation"
 echo "   ✅ Gender Classification"
-echo "   ✅ Autonomous Learning System"
+echo "   ✅ Heuristic validation and local feedback tracking"
 echo "   ✅ Modern React UI with animations"
 echo ""
 echo "⏳ Note: AI models are loading in the background..."

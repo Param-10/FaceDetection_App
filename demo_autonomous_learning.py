@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """
-Demonstration of Autonomous Learning System
-This script shows how the model automatically improves itself
+Demonstrate heuristic validation, local feedback tracking, and threshold tuning.
+
+This script does not train or retrain a model. The filename and function name are
+retained for compatibility with existing documentation and callers.
 """
 
 import cv2
@@ -10,8 +12,8 @@ from face_detection_model import FaceDetectionModel
 import time
 
 def demonstrate_autonomous_learning():
-    """Demonstrate the autonomous learning capabilities"""
-    print("🤖 Autonomous Face Detection Learning System Demo")
+    """Demonstrate validation, local feedback, and threshold control."""
+    print("🧭 Face Detection Validation and Feedback Demo")
     print("=" * 50)
     
     # Initialize the enhanced model
@@ -35,12 +37,12 @@ def demonstrate_autonomous_learning():
         ("Multi-Face Scenario", multi_face)
     ]
     
-    print("\n🔍 Testing Face Detection with Autonomous Validation...")
+    print("\n🔍 Testing face detection with heuristic validation...")
     
     for name, image in test_images:
         print(f"\n--- Testing: {name} ---")
         
-        # Detect faces with autonomous validation
+        # Detect faces and apply heuristic validation
         result_img, face_data, metadata = detector.detect_faces(image)
         
         # Display results
@@ -54,10 +56,10 @@ def demonstrate_autonomous_learning():
             print(f"   • Issues Found: {', '.join(metadata['issues'])}")
         
         if metadata['should_retrain']:
-            print(f"   • 🔄 Retraining Recommended")
+            print("   • ⚠️  Retraining review recommended; no model update was performed")
     
     # Show performance dashboard
-    print(f"\n📈 Model Performance Dashboard:")
+    print(f"\n📈 Local Validation Dashboard:")
     dashboard = detector.get_model_performance_dashboard()
     
     if dashboard['last_7_days']:
@@ -79,13 +81,12 @@ def demonstrate_autonomous_learning():
         for rec in dashboard['recommendations']:
             print(f"   • {rec}")
     
-    print(f"\n🎯 Key Features Demonstrated:")
-    print(f"   ✅ Automatic quality assessment")
-    print(f"   ✅ Result validation and filtering") 
-    print(f"   ✅ Performance tracking and analytics")
-    print(f"   ✅ Adaptive threshold adjustment")
-    print(f"   ✅ Retraining recommendations")
-    print(f"   ✅ Data collection for improvement")
+    print(f"\n🎯 Capabilities Demonstrated:")
+    print(f"   ✅ Heuristic quality assessment")
+    print(f"   ✅ Result validation and filtering")
+    print(f"   ✅ Local validation-event statistics")
+    print(f"   ✅ In-memory threshold adjustment")
+    print(f"   ✅ Retraining review recommendations (no model update)")
 
 def create_sample_face_image(width, height, quality='high'):
     """Create a sample image for testing"""

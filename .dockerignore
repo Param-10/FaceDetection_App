@@ -1,0 +1,12 @@
+.git
+.context
+node_modules
+venv
+.venv
+__pycache__
+*.py[cod]
+.env
+*.log
+model_data
+dist
+build

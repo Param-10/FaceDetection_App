@@ -1,8 +1,28 @@
 {
-  "name": "face-detection-webapp",
+  "name": "face-detection-app",
   "version": "1.0.0",
   "private": true,
+  "description": "Flask and React face detection app with heuristic validation and local feedback tracking.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Param-10/FaceDetection_App.git"
+  },
+  "homepage": "https://github.com/Param-10/FaceDetection_App#readme",
+  "bugs": {
+    "url": "https://github.com/Param-10/FaceDetection_App/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "face-detection",
+    "deepface",
+    "flask",
+    "opencv",
+    "react"
+  ],
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "dependencies": {
     "autoprefixer": "^10.4.16",
     "framer-motion": "^10.16.4",
