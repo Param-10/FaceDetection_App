@@ -4,7 +4,7 @@
 
 ## Overview
 
-The application combines face detection, heuristic result validation, local event logging, and an in-memory threshold controller. The current Flask request path requires DeepFace and TensorFlow; the detector module has a detection-only fallback, but `/ready` and `/detect` remain unavailable while the analysis models are missing or failed to preload. `/ready` distinguishes `unavailable`, `error`, `loading`, and `ready`.
+The application combines face detection, heuristic result validation, local event logging, and an in-memory threshold controller. DeepFace and TensorFlow enable optional emotion, age, and gender analysis; the lightweight/free deployment continues with OpenCV-only detection when those dependencies are unavailable or fail to preload. `/ready` distinguishes `degraded`, `loading`, and `ready`.
 
 It does **not**:
 
@@ -166,6 +166,7 @@ The current implementation does not check a separate accuracy trend despite comm
   "is_valid": true,
   "issues": [],
   "should_retrain": false,
+  "analysis_available": true,
   "num_faces_detected": 1,
   "detection_quality": "high"
 }

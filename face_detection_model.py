@@ -352,10 +352,10 @@ class FaceDetectionModel:
         self.deepface_available = DEEPFACE_AVAILABLE
         self.model_preload_failed = False
         
-        # The detector module supports detection-only operation, but the Flask
-        # request path requires both DeepFace models to be ready.
+        # DeepFace is optional for the lightweight detector. When unavailable
+        # or failed to preload, the API continues with OpenCV detection only.
         if not DEEPFACE_AVAILABLE:
-            print("❌ DeepFace is not available. The Flask API will remain not ready.")
+            print("⚠️ DeepFace is not available. Continuing with OpenCV detection only.")
         else:
             print("🧠 DeepFace is available! Enhanced analysis features enabled.")
         
@@ -559,7 +559,7 @@ class FaceDetectionModel:
             return image.copy(), [], {'error': 'No detection method available'}
         
         # Only attempt to load DeepFace models if the package is available
-        if DEEPFACE_AVAILABLE:
+        if self.deepface_available and not self.model_preload_failed:
             self._ensure_models_loaded()
         
         # Process detected faces
@@ -650,6 +650,7 @@ class FaceDetectionModel:
             'is_valid': is_valid,
             'issues': issues,
             'should_retrain': should_retrain,
+            'analysis_available': self.emotion_model_loaded and self.age_gender_model_loaded,
             'num_faces_detected': len(face_data),
             'detection_quality': 'high' if validation_score > 0.8 else 'medium' if validation_score > 0.6 else 'low'
         }

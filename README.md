@@ -1,6 +1,6 @@
 # Face Detection Web App
 
-A Flask and React application for OpenCV-based face detection with DeepFace emotion, age, and gender analysis. It applies heuristic result checks, records local validation events in SQLite, and adjusts a validation confidence threshold in memory. The current Flask request path requires DeepFace and TensorFlow to be installed and both analysis models to be ready.
+A Flask and React application for OpenCV-based face detection with optional DeepFace emotion, age, and gender analysis. It applies heuristic result checks, records local validation events in SQLite, and adjusts a validation confidence threshold in memory. The lightweight/free deployment runs OpenCV detection only; the Docker deployment enables DeepFace analysis when its models load successfully.
 
 This application does **not** train, fine-tune, replace, or deploy model weights. Its feedback data is not a labeled training set.
 
@@ -14,7 +14,8 @@ This application does **not** train, fine-tune, replace, or deploy model weights
 ### Face detection and analysis
 
 - OpenCV Haar-cascade face detection
-- Required DeepFace emotion, age, and gender estimates for the current Flask API
+- DeepFace emotion, age, and gender estimates when analysis dependencies are available
+- OpenCV-only detection fallback for lightweight/free deployments
 - Optional eye-cascade check for detected face regions
 - Flask JSON API and local React/Vite interface
 - Model preloading and readiness monitoring
@@ -37,7 +38,7 @@ The `accepted` value means that a prediction passed the application's own heuris
 - Node.js `^20.19.0` or `>=22.12.0` (required by Vite 8)
 - npm
 
-`start.sh` checks the Node.js version and installs DeepFace, TensorFlow, and the frontend dependencies. For manual setup, install DeepFace and TensorFlow explicitly as shown below; without them, `/ready` reports `unavailable` and `/detect` returns `503`. A model preload failure is reported as `error`, while `loading` is reserved for an in-progress load.
+`start.sh` checks the Node.js version and installs DeepFace, TensorFlow, and the frontend dependencies. For manual setup, install DeepFace and TensorFlow explicitly as shown below for full analysis. Without them, `/ready` reports `degraded` and `/detect` remains available using OpenCV-only detection; model preload failures use the same degraded behavior.
 
 ### One-command setup
 
@@ -60,7 +61,7 @@ python3 -m venv venv
 source venv/bin/activate
 python -m pip install -r requirements.txt
 
-# Required by the current Flask request path
+# Optional full-analysis dependencies; omit for OpenCV-only mode
 python -m pip install deepface tensorflow
 
 npm install
@@ -129,6 +130,7 @@ Example response shape:
     "is_valid": true,
     "issues": [],
     "should_retrain": false,
+    "analysis_available": true,
     "num_faces_detected": 1,
     "detection_quality": "high"
   }
@@ -158,7 +160,7 @@ For every detection request, the backend:
 
 1. Detects candidate boxes with OpenCV.
 2. Applies face-quality and optional eye-cascade filters.
-3. Runs DeepFace attribute analysis (required for the current Flask API).
+3. Runs DeepFace attribute analysis when available.
 4. Applies the heuristic result validator.
 5. Appends one validation event to `model_data/model_feedback.db`.
 6. Uses recent logged events to adjust the in-memory confidence threshold.
@@ -209,7 +211,7 @@ It is only a signal for a developer or operator to investigate. There is no auto
 - OpenCV
 - NumPy
 - SQLite
-- DeepFace and TensorFlow (required by the current Flask request path)
+- DeepFace and TensorFlow for full attribute analysis; OpenCV-only mode works without them
 
 ### Frontend
 
