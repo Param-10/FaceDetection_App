@@ -6,7 +6,7 @@ This repository includes a Docker-based Render configuration. One public service
 
 - Push the deployment changes to the repository's `main` branch.
 - A Render account with access to the GitHub repository.
-- A paid `1c-2g` web-service plan for reliable TensorFlow/DeepFace performance. The free 512 MB tier is not recommended for this workload.
+- The free plan is supported for testing, but it sleeps after inactivity and its 512 MB memory limit may be insufficient for TensorFlow/DeepFace.
 
 ## Create the service
 

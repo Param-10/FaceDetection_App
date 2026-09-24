@@ -2,7 +2,7 @@ services:
   - type: web
     name: face-detection-app
     runtime: docker
-    plan: 1c-2g
+    plan: free
     numInstances: 1
     healthCheckPath: /health
     maxShutdownDelaySeconds: 60
