@@ -16,13 +16,28 @@ if [ $? -eq 0 ]; then
     echo "✅ Backend server is responding"
     
     # Parse JSON response (basic check)
-    if echo "$response" | grep -q '"ready": true'; then
+    if echo "$response" | grep -Eq '"ready"[[:space:]]*:[[:space:]]*true'; then
         echo "🎉 All AI models are loaded and ready!"
         echo "🚀 You can now upload images for face detection"
-    elif echo "$response" | grep -q '"ready": false'; then
-        echo "⏳ Models are still loading..."
-        echo "   Please wait a moment and try again"
-        echo "   Status: $(echo "$response" | grep -o '"status": "[^"]*"' | cut -d'"' -f4)"
+    elif echo "$response" | grep -Eq '"ready"[[:space:]]*:[[:space:]]*false'; then
+        status=$(echo "$response" | sed -nE 's/.*"status"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+        case "$status" in
+            loading)
+                echo "⏳ Models are still loading..."
+                echo "   Please wait a moment and try again"
+                ;;
+            unavailable)
+                echo "❌ DeepFace is not installed"
+                echo "   Install deepface and tensorflow, then restart the backend"
+                ;;
+            error)
+                echo "❌ DeepFace models failed to load"
+                echo "   Check backend.log, then restart the backend"
+                ;;
+            *)
+                echo "⚠️  Models are not ready (status: $status)"
+                ;;
+        esac
     else
         echo "⚠️  Unexpected response from server:"
         echo "$response"

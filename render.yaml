@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: face-detection-app
+    runtime: docker
+    plan: free
+    numInstances: 1
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 60
+    autoDeployTrigger: commit
+    envVars:
+      - key: MAX_UPLOAD_BYTES
+        value: "10485760"
+      - key: MAX_IMAGE_PIXELS
+        value: "20000000"
+      - key: TF_CPP_MIN_LOG_LEVEL
+        value: "2"

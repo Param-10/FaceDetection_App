@@ -32,40 +32,57 @@ def __init__(self):
 ### 2. **Graceful Error Handling**
 
 ```python
-# Enhanced error handling with loading state detection
-if not face_detector.emotion_model_loaded or not face_detector.age_gender_model_loaded:
+# Missing dependencies, preload failures, and genuine loading are distinct.
+if not face_detector.deepface_available:
     return jsonify({
-        'error': 'Models are still loading. Please wait a moment and try again.',
-        'loading': True,
-        'message': 'AI models are initializing for the first time. This usually takes 30-60 seconds.'
-    }), 503  # Service Temporarily Unavailable
+        'error': 'DeepFace is not installed',
+        'loading': False,
+        'message': 'Install deepface and tensorflow, then restart the backend.'
+    }), 503
+
+if face_detector.model_preload_failed:
+    return jsonify({
+        'error': 'DeepFace models failed to load',
+        'loading': False,
+        'message': 'Check the backend logs, then restart the backend.'
+    }), 503
 ```
 
 **Benefits**:
-- ✅ Returns proper HTTP 503 (Service Temporarily Unavailable) instead of 500
-- ✅ Clear user-friendly error messages
-- ✅ Loading state indication for frontend handling
-- ✅ Specific guidance on wait times
+- ✅ Returns HTTP 503 with an actionable reason
+- ✅ Distinguishes missing dependencies, load failures, and temporary loading
+- ✅ Sets `loading: false` when retrying without a fix will not help
 
 ### 3. **Model Readiness API Endpoint**
 
 ```bash
-# New endpoint to check if models are ready
 GET /ready
 
-# Response when loading:
+# DeepFace is not installed:
 {
     "ready": false,
-    "status": "loading",
+    "status": "unavailable",
     "models": {
         "face_detector": "ready",
-        "emotion_model": "loading",
-        "age_gender_model": "loading"
+        "emotion_model": "unavailable",
+        "age_gender_model": "unavailable"
     },
-    "message": "Models are still loading, please wait..."
+    "message": "DeepFace is not installed; install deepface and tensorflow, then restart the backend"
 }
 
-# Response when ready:
+# Model preload failed:
+{
+    "ready": false,
+    "status": "error",
+    "models": {
+        "face_detector": "ready",
+        "emotion_model": "error",
+        "age_gender_model": "error"
+    },
+    "message": "DeepFace models failed to load; check backend logs and restart the backend"
+}
+
+# Models are ready:
 {
     "ready": true,
     "status": "ready",
@@ -117,11 +134,11 @@ GET /ready
 5. ❌ User confused, tries again later → works
 
 ### **After Improvements**:
-1. ✅ Server starts with model preloading (60 seconds)
-2. ✅ Clear progress messages shown
-3. ✅ `/ready` endpoint indicates when complete
-4. ✅ If user uploads early → graceful 503 with clear message
-5. ✅ Once loaded → instant processing forever
+1. ✅ The backend process starts and preloads DeepFace during initialization
+2. ✅ Startup and preload messages are written to the backend log
+3. ✅ The API begins listening after initialization completes
+4. ✅ `/ready` distinguishes ready, loading, unavailable, and error states
+5. ✅ Detection requests are accepted only after both model groups are ready
 
 ---
 
@@ -164,13 +181,15 @@ GET /ready
 
 3. **Error handling**:
    ```javascript
-   // Handle 503 responses gracefully
    if (response.status === 503) {
-       // Show loading message to user
        showMessage(data.message);
-       // Retry after delay
+       if (data.loading) {
+           scheduleReadinessRetry();
+       }
    }
    ```
+
+   Do not retry `unavailable` or `error` states until the operator installs the dependency or fixes the model-loading failure.
 
 ---
 
@@ -191,31 +210,14 @@ GET /ready
 
 ---
 
-## 🔧 Configuration Options
+## 🔧 Readiness States
 
-### **Disable Preloading** (if needed):
-```python
-# In face_detection_model.py
-# Comment out this line to disable preloading:
-# self._preload_deepface_models()
-```
+- `ready`: both DeepFace model groups loaded; requests can be processed.
+- `loading`: a load is genuinely still in progress.
+- `unavailable`: DeepFace is not installed in the backend environment.
+- `error`: DeepFace is installed, but model loading failed.
 
-### **Adjust Timeout Handling**:
-```python
-# In app.py - modify loading check sensitivity
-if not face_detector.emotion_model_loaded or not face_detector.age_gender_model_loaded:
-    # Return loading message
-```
-
-### **Custom Loading Messages**:
-```python
-# Customize messages in app.py
-return jsonify({
-    'error': 'Your custom loading message here',
-    'loading': True,
-    'message': 'Custom detailed explanation'
-}), 503
-```
+Do not disable preloading without also updating the request gate; the current Flask API intentionally rejects detection requests until both model groups are ready.
 
 ---
 
@@ -231,7 +233,7 @@ return jsonify({
 - ✅ **Reliable API behavior** with proper HTTP status codes
 - ✅ **Easy monitoring** with `/ready` endpoint
 - ✅ **Clear logging** of model loading progress
-- ✅ **Graceful degradation** during startup phase
+- ✅ **Explicit failure states** for missing or failed model dependencies
 
 ### **Production Readiness**:
 - ✅ **Zero-downtime** after initial load
@@ -258,7 +260,7 @@ detector.emotion_model_loaded and detector.age_gender_model_loaded
 ### **Common HTTP Status Codes**:
 - `200`: Models ready, processing successful
 - `400`: Bad request (invalid image, etc.)
-- `503`: Models still loading, try again later
+- `503`: Models are loading, unavailable, or failed to load; inspect `status` and `message`
 - `500`: Unexpected error (check logs)
 
 ### **Expected Startup Sequence**:
@@ -271,4 +273,4 @@ detector.emotion_model_loaded and detector.age_gender_model_loaded
 7. `🎉 All DeepFace models preloaded successfully!`
 8. `🚀 Server is ready for immediate face detection requests!`
 
-The loading time issue has been completely resolved! 🎉 
+Preloading reduces first-request delay; actual model load times vary by cache state, hardware, dependency versions, and downloads. The readiness endpoint reports the current state rather than assuming that loading is still in progress.

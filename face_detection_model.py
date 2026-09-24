@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 """
-Enhanced Face Detection Model with Autonomous Improvement
+Enhanced face detection with heuristic validation and local feedback tracking.
+
 Features:
-- Self-validation of results
-- Automatic data collection for retraining
+- Rule-based validation of results
+- Local prediction-event logging for monitoring and threshold tuning
 - Confidence-based result filtering
-- Quality assessment and feedback loops
+- Quality assessment and recommendation signals
+
+This module does not train, fine-tune, or replace model weights.
 """
 
 import cv2
@@ -13,7 +16,7 @@ import numpy as np
 import os
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import sqlite3
 from pathlib import Path
@@ -31,11 +34,11 @@ except Exception as e:
     DEEPFACE_AVAILABLE = False
 
 class ModelDataCollector:
-    """Collects and manages training data for model improvement"""
+    """Stores local prediction and validation events used for monitoring."""
     
     def __init__(self, data_dir="model_data"):
         self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Create subdirectories
         (self.data_dir / "high_confidence").mkdir(exist_ok=True)
@@ -48,7 +51,7 @@ class ModelDataCollector:
         self._init_database()
     
     def _init_database(self):
-        """Initialize SQLite database for tracking model performance"""
+        """Initialize SQLite tables for local validation-event tracking."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -81,7 +84,7 @@ class ModelDataCollector:
         conn.close()
     
     def log_prediction(self, image, predictions, validation_score, accepted, feedback_source="auto"):
-        """Log a prediction for tracking and analysis"""
+        """Append one local prediction and validation event."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -96,7 +99,7 @@ class ModelDataCollector:
             (timestamp, image_hash, num_faces, avg_confidence, predictions, validation_score, accepted, feedback_source)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            datetime.now().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
             image_hash,
             len(predictions),
             avg_conf,
@@ -110,7 +113,11 @@ class ModelDataCollector:
         conn.close()
     
     def get_model_performance_stats(self, days=30):
-        """Get model performance statistics"""
+        """Get timezone-aware validation events within a UTC time window.
+
+        Legacy timezone-naive rows are retained in SQLite but excluded because
+        their original UTC offset cannot be reconstructed safely.
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -121,8 +128,12 @@ class ModelDataCollector:
                 AVG(avg_confidence) as avg_conf,
                 AVG(validation_score) as avg_validation
             FROM predictions 
-            WHERE timestamp > datetime('now', '-{} days')
-        '''.format(days))
+            WHERE (
+                timestamp GLOB '*[+-][0-9][0-9]:[0-9][0-9]'
+                OR timestamp GLOB '*Z'
+            )
+            AND julianday(timestamp) > julianday('now', ?)
+        ''', (f'-{int(days)} days',))
         
         result = cursor.fetchone()
         conn.close()
@@ -267,39 +278,41 @@ class ResultValidator:
         return 1.0
 
 class AdaptiveLearningSystem:
-    """Manages adaptive learning and model improvement"""
+    """Tunes validation thresholds and reports retraining recommendations.
+
+    The historical class name is retained for compatibility. This class does not
+    train a model or persist the adjusted threshold.
+    """
     
     def __init__(self, data_collector, validator):
         self.data_collector = data_collector
         self.validator = validator
-        self.improvement_threshold = 0.8  # Trigger retraining when accuracy drops below this
-        self.confidence_adjustment_factor = 0.95  # Gradually increase standards
+        self.improvement_threshold = 0.8  # Recommendation threshold for heuristic acceptance
     
     def should_trigger_retraining(self):
-        """Determine if model retraining should be triggered"""
+        """Return a recommendation bit; do not start or perform retraining."""
         stats = self.data_collector.get_model_performance_stats(days=7)
         
         if not stats:
             return False
         
-        # Trigger retraining if:
-        # 1. Acceptance rate is too low
-        # 2. Average confidence is dropping
-        # 3. We have enough data samples
+        # Raise a recommendation when:
+        # 1. Heuristic acceptance is below the configured threshold
+        # 2. Enough events exist to justify operator review
         
         return (
             stats['acceptance_rate'] < self.improvement_threshold and
-            stats['total_predictions'] > 50  # Minimum samples for meaningful retraining
+            stats['total_predictions'] > 50  # Enough events to justify operator review
         )
     
     def adjust_confidence_thresholds(self):
-        """Dynamically adjust confidence thresholds based on performance"""
+        """Adjust the process-local validation threshold from recent events."""
         stats = self.data_collector.get_model_performance_stats(days=14)
         
         if not stats:
             return
         
-        # If model is performing well, we can be more strict
+        # React to recent heuristic acceptance, not measured model accuracy
         if stats['acceptance_rate'] > 0.9:
             self.validator.validation_rules['min_confidence'] *= 1.02  # Increase threshold
         elif stats['acceptance_rate'] < 0.7:
@@ -336,19 +349,22 @@ class FaceDetectionModel:
         # Initialize DeepFace models
         self.emotion_model_loaded = False
         self.age_gender_model_loaded = False
+        self.deepface_available = DEEPFACE_AVAILABLE
+        self.model_preload_failed = False
         
-        # Don't try to load DeepFace models if the package is not available
+        # The detector module supports detection-only operation, but the Flask
+        # request path requires both DeepFace models to be ready.
         if not DEEPFACE_AVAILABLE:
-            print("❌ DeepFace is not available. Face analysis will be limited to detection only.")
+            print("❌ DeepFace is not available. The Flask API will remain not ready.")
         else:
             print("🧠 DeepFace is available! Enhanced analysis features enabled.")
         
-        # Initialize autonomous improvement systems
-        self.data_collector = ModelDataCollector()
+        # Initialize validation feedback and threshold-control components
+        self.data_collector = ModelDataCollector(os.environ.get('MODEL_DATA_DIR', 'model_data'))
         self.validator = ResultValidator()
         self.adaptive_system = AdaptiveLearningSystem(self.data_collector, self.validator)
         
-        print("🤖 Autonomous model improvement system initialized!")
+        print("🧭 Heuristic validation feedback system initialized!")
         
         # Preload DeepFace models during initialization to prevent first-request delays
         if DEEPFACE_AVAILABLE:
@@ -395,7 +411,10 @@ class FaceDetectionModel:
                 print(f"❌ Error loading DeepFace models: {e}")
                 
         if self.emotion_model_loaded and self.age_gender_model_loaded:
+            self.model_preload_failed = False
             print("🎉 All AI models are ready for enhanced face analysis!")
+        else:
+            self.model_preload_failed = True
     
     def _preload_deepface_models(self):
         """Preload DeepFace models during initialization to prevent first-request delays"""
@@ -433,14 +452,17 @@ class FaceDetectionModel:
                     print(f"   ❌ Age/Gender model failed: {e}")
             
             if self.emotion_model_loaded and self.age_gender_model_loaded:
+                self.model_preload_failed = False
                 print("🎉 All DeepFace models preloaded successfully!")
                 print("🚀 Server is ready for immediate face detection requests!")
             else:
-                print("⚠️  Some models failed to preload - first requests may be slower")
+                self.model_preload_failed = True
+                print("⚠️  Some models failed to preload; the API will report an error state")
                 
         except Exception as e:
+            self.model_preload_failed = True
             print(f"⚠️  Model preloading failed: {e}")
-            print("🔄 Models will load on first request instead")
+            print("❌ The API will remain unavailable until the models load successfully")
     
     def _detect_faces_opencv(self, image):
         """Primary method using OpenCV's built-in face detector with improved accuracy"""
@@ -520,7 +542,7 @@ class FaceDetectionModel:
 
     def detect_faces(self, image):
         """
-        Enhanced face detection with autonomous quality checking and improvement
+        Enhanced face detection with heuristic quality checking and local feedback
         
         Args:
             image: OpenCV image (numpy array)
@@ -610,16 +632,16 @@ class FaceDetectionModel:
             
             face_data.append(face_info)
         
-        # Validate predictions using autonomous system
+        # Apply heuristic result validation
         is_valid, validation_score, issues = self.validator.validate_predictions(image, face_data)
         
-        # Log prediction for learning
+        # Log a local validation event; this is not a labeled training sample
         self.data_collector.log_prediction(image, face_data, validation_score, is_valid)
         
-        # Adjust thresholds based on recent performance
+        # Tune the process-local validation threshold from recent events
         self.adaptive_system.adjust_confidence_thresholds()
         
-        # Check if retraining should be triggered
+        # Produce a recommendation bit only; no retraining is performed
         should_retrain = self.adaptive_system.should_trigger_retraining()
         
         # Prepare metadata
@@ -911,18 +933,18 @@ class FaceDetectionModel:
         return dashboard
     
     def _generate_recommendations(self):
-        """Generate recommendations for model improvement"""
+        """Generate operator recommendations from recent heuristic results."""
         recommendations = []
         
         stats = self.data_collector.get_model_performance_stats(days=7)
         if stats:
             if stats['acceptance_rate'] < 0.7:
-                recommendations.append("Consider collecting more training data - low acceptance rate detected")
+                recommendations.append("Review recent rejected predictions - heuristic acceptance is low")
             
             if stats['avg_confidence'] < 0.6:
-                recommendations.append("Model confidence is low - may need retraining with higher quality data")
+                recommendations.append("Review low-confidence results before evaluating any model update")
             
             if stats['total_predictions'] > 100 and stats['acceptance_rate'] > 0.9:
-                recommendations.append("Model performing well - consider increasing quality thresholds")
+                recommendations.append("Recent heuristic acceptance is high - review threshold changes carefully")
         
         return recommendations

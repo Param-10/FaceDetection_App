@@ -1,274 +1,218 @@
-# 🤖 Autonomous Model Improvement System
+# Feedback-Driven Validation and Threshold Tuning
+
+> This file keeps its historical filename for compatibility. The implementation described here does not train or retrain a model.
 
 ## Overview
 
-This Face Detection Web App now features a comprehensive **autonomous learning system** that continuously improves model performance without manual intervention. The system automatically validates predictions, collects training data, adjusts thresholds, and provides recommendations for model enhancement.
+The application combines face detection, heuristic result validation, local event logging, and an in-memory threshold controller. The current Flask request path requires DeepFace and TensorFlow; the detector module has a detection-only fallback, but `/ready` and `/detect` remain unavailable while the analysis models are missing or failed to preload. `/ready` distinguishes `unavailable`, `error`, `loading`, and `ready`.
 
-## 🎯 Key Features
+It does **not**:
 
-### 1. **Autonomous Quality Validation**
-- **Real-time Result Assessment**: Every prediction is automatically scored for quality
-- **Multi-factor Validation**: Checks confidence, consistency, statistical outliers, and face anatomy
-- **Automatic Rejection**: Low-quality predictions are filtered out before being shown to users
-- **Feedback Loops**: Rejected predictions help improve future performance
+- train or fine-tune OpenCV, DeepFace, TensorFlow, or any other model;
+- collect human labels or confirmed ground truth;
+- save uploaded images as a training dataset;
+- replace, export, or deploy model weights; or
+- execute a retraining job when a recommendation bit is set.
 
-### 2. **Intelligent Data Collection**
-```python
-# Automatic data categorization
-model_data/
-├── high_confidence/     # High-quality predictions for reinforcement learning
-├── low_confidence/      # Uncertain predictions needing review
-├── rejected/           # Failed predictions for negative examples
-├── validated/          # User-confirmed correct predictions
-└── model_feedback.db   # SQLite database tracking all metrics
-```
+The current code creates placeholder data directories, but only `model_data/model_feedback.db` is written.
 
-### 3. **Adaptive Threshold Management**
-- **Dynamic Adjustment**: Confidence thresholds automatically adjust based on performance
-- **Performance-based Tuning**: If accuracy is high, standards increase; if low, they decrease
-- **Bounded Optimization**: Thresholds stay within reasonable limits (0.4 - 0.8)
+## Processing flow
 
-### 4. **Comprehensive Analytics Dashboard**
-```python
-# Access via API: GET /dashboard
-{
-    "last_7_days": {
-        "total_predictions": 150,
-        "acceptance_rate": 0.87,
-        "avg_confidence": 0.72,
-        "avg_validation_score": 0.81
-    },
-    "current_thresholds": {
-        "min_confidence": 0.65,
-        "max_faces_per_image": 10,
-        "min_face_size_ratio": 0.02
-    },
-    "should_retrain": false,
-    "recommendations": [
-        "Model performing well - consider increasing quality thresholds"
-    ]
-}
-```
+For each uploaded image, `FaceDetectionModel.detect_faces()` performs these steps:
 
-## 🔍 Validation Rules
+1. Detect candidate faces with the OpenCV Haar cascade.
+2. Discard candidates that are too small or fail the face-quality score.
+3. Apply the eye cascade when it is available.
+4. Run DeepFace analysis for emotion, age, and gender (required by the Flask API).
+5. Validate the resulting prediction list with `ResultValidator`.
+6. Log the prediction and heuristic decision in SQLite.
+7. Adjust the validator's in-memory minimum-confidence threshold.
+8. Return an empty face list if the validator rejects the result.
 
-### Primary Validation Criteria
+## Heuristic validation
 
-1. **Face Count Validation**
-   - Rejects images with > 10 faces (likely false positives)
-   - Prevents mass misdetection scenarios
+`ResultValidator` starts with these rules:
 
-2. **Individual Face Quality**
-   - **Confidence Threshold**: Must meet minimum confidence score
-   - **Size Validation**: Face must be ≥ 2% of image area
-   - **Age Bounds**: Age predictions must be 1-100 years
-   - **Emotion Consistency**: Emotion confidence must be reasonable
-
-3. **Cross-Face Consistency**
-   - **Age Distribution**: Large age variations (>25 years) flagged as suspicious
-   - **Gender Bias Detection**: All same-gender groups in multi-face images reviewed
-
-4. **Statistical Outlier Detection**
-   - **Confidence Variance**: Extreme confidence variations indicate potential issues
-   - **Distribution Analysis**: More than 30% outliers triggers rejection
-
-### Eye Validation System
-```python
-# Additional biological validation
-def _validate_face_has_eyes(self, face_img):
-    # Uses OpenCV eye cascade to confirm facial anatomy
-    # Requires at least 1 eye detected in face region
-    # Significantly reduces false positives from objects/patterns
-```
-
-## 📊 Performance Tracking
-
-### Automatic Metrics Collection
-- **Prediction Logging**: Every detection logged with metadata
-- **Performance Trends**: 7-day and 30-day performance tracking
-- **Quality Scores**: Comprehensive validation scoring for each prediction
-- **Acceptance Rates**: Percentage of predictions passing validation
-
-### Database Schema
-```sql
--- Predictions table
-CREATE TABLE predictions (
-    id INTEGER PRIMARY KEY,
-    timestamp TEXT,
-    image_hash TEXT,           -- Prevents duplicate processing
-    num_faces INTEGER,
-    avg_confidence REAL,
-    predictions TEXT,          -- JSON blob of all face data
-    validation_score REAL,
-    accepted BOOLEAN,
-    feedback_source TEXT       -- 'auto', 'user', 'manual'
-);
-
--- Model statistics
-CREATE TABLE model_stats (
-    id INTEGER PRIMARY KEY,
-    timestamp TEXT,
-    total_predictions INTEGER,
-    accepted_predictions INTEGER,
-    avg_confidence REAL,
-    accuracy_trend REAL
-);
-```
-
-## 🔄 Automatic Retraining Triggers
-
-### Conditions for Retraining Recommendation
-1. **Low Acceptance Rate**: < 80% of predictions passing validation
-2. **Minimum Data Volume**: At least 50 predictions collected
-3. **Performance Degradation**: Declining accuracy trends over time
-
-### Retraining Process (Future Enhancement)
-```python
-# Planned features for full autonomous retraining:
-# 1. Automatic dataset curation from collected data
-# 2. Incremental learning with new high-quality samples
-# 3. A/B testing of model updates
-# 4. Rollback mechanisms for performance regressions
-```
-
-## 🚀 How It Works in Practice
-
-### 1. **Image Upload & Processing**
-```python
-# Enhanced detection workflow
-result_img, face_data, metadata = detector.detect_faces(image)
-
-# Metadata includes:
-{
-    'validation_score': 0.85,      # Overall quality score
-    'is_valid': True,              # Passed all validation rules
-    'issues': [],                  # Any problems found
-    'should_retrain': False,       # Retraining recommendation
-    'num_faces_detected': 1,       # Number of faces found
-    'detection_quality': 'high'    # Quality classification
-}
-```
-
-### 2. **Automatic Quality Assessment**
-- **Multi-factor Scoring**: Size, position, clarity, aspect ratio
-- **Biological Validation**: Eye detection for anatomy confirmation
-- **Confidence Calibration**: Realistic confidence scores (45-85% range)
-
-### 3. **Real-time Feedback**
-```bash
-# Console output examples:
-✅ Prediction accepted (score: 0.87, faces: 1)
-⚠️  Prediction rejected (score: 0.45): Face 1 failed validation, Too many faces detected
-🔄 Retraining Recommended: Low acceptance rate detected
-```
-
-### 4. **Adaptive Learning**
-- **Threshold Adjustment**: Automatically tunes for optimal performance
-- **Data Collection**: Builds datasets for future training
-- **Performance Monitoring**: Continuous quality assessment
-
-## 📈 Benefits
-
-### For Users
-- **Higher Accuracy**: Only high-quality predictions are shown
-- **Consistent Performance**: Automatic quality maintenance
-- **Reliable Results**: False positives filtered out automatically
-
-### For Developers
-- **Self-Improving System**: Reduces manual tuning requirements
-- **Comprehensive Monitoring**: Detailed performance analytics
-- **Data-Driven Decisions**: Automatic recommendations for improvements
-
-### For Long-term Performance
-- **Continuous Learning**: System gets better with more data
-- **Adaptive Optimization**: Self-adjusts to changing conditions
-- **Quality Assurance**: Built-in safeguards against performance degradation
-
-## 🛠️ API Integration
-
-### Enhanced Detection Endpoint
-```python
-POST /detect
-# Returns enhanced response with metadata
-{
-    "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...",
-    "faces": [
-        {
-            "box": [150, 100, 300, 250],
-            "confidence": 0.78,
-            "emotion": "happy",
-            "age": 25,
-            "gender": "Male"
-        }
-    ],
-    "metadata": {
-        "validation_score": 0.85,
-        "is_valid": true,
-        "issues": [],
-        "detection_quality": "high"
-    }
-}
-```
-
-### Performance Dashboard Endpoint
-```python
-GET /dashboard
-# Returns comprehensive performance data
-{
-    "last_7_days": {
-        "total_predictions": 150,
-        "acceptance_rate": 0.87,
-        "avg_confidence": 0.72
-    },
-    "current_thresholds": {
-        "min_confidence": 0.65,
-        "max_faces_per_image": 10
-    },
-    "recommendations": [
-        "Model performing well - consider increasing quality thresholds"
-    ]
-}
-```
-
-## 🔧 Configuration
-
-### Validation Rules Configuration
 ```python
 validation_rules = {
-    'min_confidence': 0.6,              # Minimum prediction confidence
-    'max_faces_per_image': 10,          # Maximum faces to prevent false positives
-    'min_face_size_ratio': 0.02,        # Minimum face size (2% of image)
-    'age_bounds': (1, 100),             # Valid age range
-    'emotion_consistency_threshold': 0.3 # Emotion confidence threshold
+    'min_confidence': 0.6,
+    'max_faces_per_image': 10,
+    'min_face_size_ratio': 0.02,
+    'age_bounds': (1, 100),
+    'emotion_consistency_threshold': 0.3,
 }
 ```
 
-### Adaptive Learning Parameters
+The validator checks:
+
+- whether the number of predictions exceeds the configured maximum;
+- each prediction's confidence, relative face size, and age bounds;
+- age consistency and same-gender groups in multi-face results; and
+- confidence outliers.
+
+A result is accepted only when its overall score is at least `0.7` and no issue was recorded. This is an internal heuristic decision, not a measured accuracy value.
+
+## Threshold controller
+
+After the current event is logged with a UTC timestamp, `adjust_confidence_thresholds()` reads timezone-aware events from the preceding 14 UTC days. Legacy timezone-naive rows are retained in SQLite but excluded from rolling calculations because their original UTC offset cannot be reconstructed safely.
+
+| Recent heuristic acceptance | Adjustment |
+| --- | --- |
+| Greater than `0.90` | Multiply `min_confidence` by `1.02` |
+| Less than `0.70` | Multiply `min_confidence` by `0.98` |
+| Otherwise | No change |
+
+The resulting value is clamped to `0.4`–`0.8`.
+
+Important properties:
+
+- the threshold is held in process memory;
+- it is not written to SQLite;
+- it is not shared between workers;
+- it resets to `0.6` after a restart; and
+- its input is generated by the same heuristic validator whose threshold it changes.
+
+The controller can therefore amplify biases or mistakes in the validation rules. It should not be described as model learning.
+
+## Local feedback log
+
+`ModelDataCollector` creates a local SQLite database at:
+
+```text
+model_data/model_feedback.db
+```
+
+The `predictions` schema is:
+
+```sql
+CREATE TABLE predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    image_hash TEXT,
+    num_faces INTEGER,
+    avg_confidence REAL,
+    predictions TEXT,
+    validation_score REAL,
+    accepted BOOLEAN,
+    feedback_source TEXT
+);
+```
+
+For detections made by the current application, `feedback_source` is `auto`. The schema also allows `user` and `manual`, but the current request path does not create those records.
+
+The `model_stats` table exists in the schema, but current code does not insert rows into it.
+
+### Data recorded
+
+Each event includes:
+
+- a UTC ISO timestamp for new events (legacy timezone-naive rows are retained but excluded from rolling windows);
+- an MD5 digest of decoded image pixels;
+- the number of faces and that event's average face confidence (`0` for no-face events);
+- JSON-serialized prediction objects;
+- the validator's score, issues-derived acceptance bit, and source label.
+
+Prediction objects can contain bounding boxes, confidence values, and inferred emotion, age, and gender.
+
+### Data not recorded
+
+The current database path does not store:
+
+- uploaded image bytes or image files;
+- original filenames;
+- user identity;
+- human corrections or ground-truth labels; or
+- model weights.
+
+MD5 is used only to distinguish image content. It must not be treated as anonymization, authentication, or a privacy safeguard.
+
+Runtime `model_data/` is excluded from Git. The old database is currently still recoverable from the public repository history (introduced in commit `15dd792`); removing the current file does not remove that historical blob.
+
+## Statistics semantics
+
+`get_model_performance_stats()` reports:
+
 ```python
-adaptive_params = {
-    'improvement_threshold': 0.8,        # Trigger retraining below 80% accuracy
-    'confidence_adjustment_factor': 0.95, # Gradual threshold adjustment rate
-    'min_samples_for_retraining': 50    # Minimum data for meaningful retraining
+{
+    'total_predictions': total_events,
+    'acceptance_rate': heuristic_accepts / total_events,
+    'avg_confidence': mean_per_event_confidence_including_zeroes_for_no_face_events,
+    'avg_validation_score': average_validator_score,
 }
 ```
 
-## 📊 Monitoring Commands
+These values summarize internal outputs. In particular, `acceptance_rate` is not true-positive rate, accuracy, precision, recall, or user satisfaction. `avg_confidence` is the mean of each event's stored average and therefore includes `0` for no-face events; it is not the mean confidence across detected faces.
 
-### Check Model Performance
-```bash
-# View recent performance
-python -c "
-from face_detection_model import FaceDetectionModel
-detector = FaceDetectionModel()
-dashboard = detector.get_model_performance_dashboard()
-print(f'Acceptance Rate: {dashboard[\"last_7_days\"][\"acceptance_rate\"]:.1%}')
-"
+Events with no detected faces are logged with `num_faces = 0`, an empty JSON array, and average confidence `0`.
+
+## Retraining recommendation bit
+
+`should_trigger_retraining()` returns `True` only when:
+
+- the preceding 7 UTC days contain more than 50 timezone-aware logged events; and
+- fewer than 80% passed the heuristic validator.
+
+Despite its name, the method does not trigger an action. Its result is exposed as `should_retrain` in detection and dashboard responses for compatibility.
+
+The current implementation does not check a separate accuracy trend despite comments that might suggest that it does. There is no retraining worker or model-update path.
+
+## API examples
+
+### Detection metadata
+
+```json
+{
+  "validation_score": 0.85,
+  "is_valid": true,
+  "issues": [],
+  "should_retrain": false,
+  "num_faces_detected": 1,
+  "detection_quality": "high"
+}
 ```
 
-### Run Autonomous Learning Demo
-```bash
-# Demonstrate autonomous features
-python demo_autonomous_learning.py
+`should_retrain: true` means “investigate recent heuristic rejection rates,” not “a model update occurred.”
+
+### Dashboard
+
+```http
+GET /dashboard
 ```
 
-This autonomous learning system ensures your face detection model continuously improves while maintaining high quality standards and providing valuable insights for optimization! 🎉 
+The dashboard combines recent SQLite aggregates with the current process-local threshold. A dashboard request does not train a model.
+
+## Inspecting local feedback safely
+
+Use SQLite in read-only mode and avoid printing the `predictions` column when the database may contain real faces:
+
+```bash
+sqlite3 -readonly model_data/model_feedback.db \
+  "SELECT COUNT(*), MIN(timestamp), MAX(timestamp) FROM predictions;"
+```
+
+Check integrity without exposing row payloads:
+
+```bash
+sqlite3 -readonly model_data/model_feedback.db "PRAGMA integrity_check;"
+```
+
+To inspect schema only:
+
+```bash
+sqlite3 -readonly model_data/model_feedback.db ".schema"
+```
+
+## Operational and privacy considerations
+
+Before using real face images:
+
+- disclose what attributes are inferred and where events are stored;
+- define retention and deletion periods;
+- restrict database access;
+- avoid logging on shared or ephemeral deployments unless explicitly intended;
+- add authentication and authorization to monitoring endpoints before exposing them; and
+- obtain an independent assessment for biometric-data obligations.
+
+## Future work
+
+Actual model improvement would require a separate, explicit design covering consent, labeling, dataset curation, training, evaluation, model versioning, canary rollout, rollback, and monitoring. None of those capabilities is implemented by the current feedback loop.
